@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>隔两秒够不够</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; background: #eef0ee; color: #1f2422; line-height: 1.6; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 14px 40px; }
+  h1 { font-size: 26px; letter-spacing: 1px; }
+  .lead { color: #4f5853; font-size: 14px; margin: 4px 0 14px; }
+  .card { background: #fff; border-radius: 10px; padding: 14px; border: 1px solid #d6dcd8; margin-bottom: 14px; min-width: 0; }
+  .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 8px; overflow-wrap: anywhere; }
+  label { font-size: 12px; color: #4f5853; display: block; overflow-wrap: anywhere; }
+  input { font: inherit; font-size: 14px; padding: 6px 8px; border: 1px solid #b9c2bd; border-radius: 6px; width: 100%; min-width: 0; background: #fff; font-variant-numeric: tabular-nums; }
+  input:disabled { background: #f1f3f2; color: #9aa39e; }
+  .grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 10px; margin-top: 8px; }
+  .grid > div { min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; }
+  .grid .wide { grid-column: span 2; }
+  .seg { display: flex; gap: 0; flex-wrap: wrap; }
+  .seg button { border-radius: 0; background: #fff; color: #2d5d4b; border: 1px solid #2d5d4b; padding: 5px 10px; }
+  .seg button:first-child { border-radius: 6px 0 0 6px; } .seg button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
+  .seg button.on { background: #2d5d4b; color: #fff; }
+  .bad { border-color: #b3362b !important; background: #fff0ed !important; }
+  button { font: inherit; font-size: 13px; padding: 6px 11px; border-radius: 6px; border: 1px solid #2d5d4b; background: #2d5d4b; color: #fff; cursor: pointer; }
+  button.ghost { background: #fff; color: #2d5d4b; }
+  .presets, .dl { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  .err { display: none; background: #fff0ed; border: 1px solid #ecb4aa; color: #8e2318; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; overflow-wrap: anywhere; }
+  .muted { color: #6b746f; font-size: 12px; overflow-wrap: anywhere; }
+  .verdict { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .stamp { display: inline-block; border: 3px solid #2c7a4b; color: #2c7a4b; border-radius: 6px; padding: 0 10px; font-weight: 800; font-size: 20px; white-space: nowrap; transform: rotate(-3deg); }
+  .stamp.hit { border-color: #b3362b; color: #b3362b; } .stamp.tight { border-color: #b7791f; color: #b7791f; }
+  #big { font-size: 15px; overflow-wrap: anywhere; } #big b { font-size: 28px; font-variant-numeric: tabular-nums; }
+  #sumTxt { font-size: 15px; margin-top: 8px; overflow-wrap: anywhere; }
+  #facts { margin: 8px 0 0 18px; font-size: 13px; color: #3b433f; } #facts li { margin: 3px 0; overflow-wrap: anywhere; }
+  canvas { display: block; width: 100%; }
+  #road { height: 170px; } #gapc { height: 240px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: #4f5853; margin-top: 4px; }
+  .legend i { display: inline-block; width: 14px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tg { width: 100%; border-collapse: separate; border-spacing: 3px; font-variant-numeric: tabular-nums; font-size: 13px; }
+  .tg th { font-size: 12px; color: #4f5853; font-weight: 600; padding: 4px; white-space: nowrap; }
+  .tg td { padding: 6px 4px; text-align: center; white-space: nowrap; border-radius: 5px; cursor: pointer; }
+  .tg td.hit { background: #f6d5cf; color: #8e2318; } .tg td.tight { background: #f8e6c4; color: #7a4f0f; } .tg td.safe { background: #d8ecdf; color: #1f5a37; }
+  .tg td.need { background: none; cursor: default; color: #3b433f; font-weight: 600; }
+  .tg td.me { outline: 2px solid #1f2422; }
+  #wi { margin: 4px 0 0 18px; font-size: 13px; color: #3b433f; } #wi li { margin: 3px 0; overflow-wrap: anywhere; }
+  #sugs { display: grid; gap: 8px; }
+  .sug { display: flex; gap: 10px; align-items: center; justify-content: space-between; border: 1px dashed #b9c2bd; border-radius: 8px; padding: 8px 10px; }
+  .sug span { font-size: 13px; overflow-wrap: anywhere; min-width: 0; }
+  .sug button { flex: none; }
+  .foot { font-size: 12px; color: #6b746f; margin-top: 10px; overflow-wrap: anywhere; }
+  @media (max-width: 640px) {
+    h1 { font-size: 22px; }
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #big b { font-size: 24px; }
+    #road { height: 150px; } #gapc { height: 200px; }
+    .tg { font-size: 12px; } .tg td { padding: 5px 2px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>隔两秒够不够</h1>
+  <p class="lead">跟在一辆车后面，它突然急刹，你来得及吗？填车速、隔几秒（或几米）、你多久反应过来、刹车多猛，按匀减速算一遍：会不会撞上，要隔几秒才刹得住。</p>
+
+  <div class="card">
+    <h2>这一段路</h2>
+    <div class="grid">
+      <div class="wide"><label for="label">场景名（可空）</label><input id="label" maxlength="40"></div>
+      <div><label for="v">你的车速（km/h）</label><input id="v" inputmode="decimal" maxlength="6"></div>
+      <div><label for="tr">你多久反应过来（秒）</label><input id="tr" inputmode="decimal" maxlength="5"></div>
+      <div class="wide"><label>前面是</label><div class="seg" id="scenSeg"><button data-v="brake">一辆车，突然急刹</button><button data-v="obstacle">停着的东西</button></div></div>
+      <div><label for="vL">前车车速（km/h）</label><input id="vL" inputmode="decimal" maxlength="6"></div>
+      <div><label for="aL">前车刹车多猛（m/s²）</label><input id="aL" inputmode="decimal" maxlength="5"></div>
+      <div class="wide"><label>车距怎么填</label><div class="seg" id="modeSeg"><button data-v="sec">隔几秒</button><button data-v="m">隔几米</button></div></div>
+      <div><label for="gap" id="gapLab">车距</label><input id="gap" inputmode="decimal" maxlength="6"></div>
+      <div><label for="a">你刹车多猛（m/s²）</label><input id="a" inputmode="decimal" maxlength="5"></div>
+      <div><label for="buffer">停下后至少留（米，可空）</label><input id="buffer" inputmode="decimal" maxlength="5"></div>
+    </div>
+    <p class="muted" style="margin-top:8px">刹车多猛 = 每秒掉多少速度（m/s²），这是你自己的假设：干路面用力踩一般按 6–8 填，下雨、轮胎旧、车重就往低填。反应时间 = 看到刹车灯到脚踩下去，分神时会更长。本页不提供真实车型和路面数据。</p>
+    <div class="presets" id="presets"></div>
+    <div class="presets"><button class="ghost" id="reset">恢复默认</button></div>
+  </div>
+
+  <div class="err" id="error"></div>
+
+  <div id="out">
+    <div class="card">
+      <div class="verdict"><span class="stamp" id="stamp"></span><div id="big"></div></div>
+      <p id="sumTxt"></p>
+      <ul id="facts"></ul>
+    </div>
+    <div class="card">
+      <h2 id="roadTitle">路面上：两辆车各自在哪停下</h2>
+      <canvas id="road"></canvas>
+      <div class="legend"><span><i style="background:#2d5d4b"></i>你</span><span><i style="background:#8a6a2f"></i>前车 / 停着的东西</span><span><i style="background:#b3362b"></i>撞上的位置</span></div>
+    </div>
+    <div class="card">
+      <h2 id="gapTitle">两车之间还剩几米（从前车刹车那一刻算）</h2>
+      <canvas id="gapc"></canvas>
+      <div class="legend"><span><i style="background:#2d5d4b"></i>两车间距</span><span><i style="background:#b7791f"></i>你要留的</span><span><i style="background:#b3362b"></i>0 = 撞上</span></div>
+    </div>
+    <div class="card">
+      <h2>换个车速、换个秒数（前车同速，其余照你填的；点一格 = 代回那个车速和秒数）</h2>
+      <div class="scroll"><table class="tg" id="tg"></table></div>
+      <p class="muted" style="margin-top:6px">撞 N = 撞上那一下比前车快 N km/h；剩/贴 = 停下后最近还剩几米（贴 = 不够你要留的）。「前面停着东西」时每格都是停着的东西。</p>
+    </div>
+    <div class="card">
+      <h2>要是我估错了</h2>
+      <ul id="wi"></ul>
+    </div>
+    <div class="card" id="sugCard">
+      <h2>可以改的（点「代回」直接改上面）</h2>
+      <div id="sugs"></div>
+    </div>
+    <div class="card">
+      <h2>拿走结果</h2>
+      <div class="dl" style="margin-top:0"><button id="dlPNG">结果卡 PNG</button><button class="ghost" id="dlCSV">格子表 CSV</button><button class="ghost" id="dlMD">Markdown</button><button class="ghost" id="dlJSON">JSON 备份</button></div>
+      <p class="foot">按匀减速和你填的数算，没算刹车起效的那一下延迟、ABS、坡道、弯道、车长和后车；所有数是你自己的假设，不是安全标准，算出来刹得住不代表现实里一定刹得住。默认数据为虚构示例。填的内容只存在本机浏览器。</p>
+    </div>
+  </div>
+</div>
+
+  <script>
+/* 隔两秒够不够 · 计算核心（纯函数，Node 与浏览器共用）
+ * 跟在前车后面，前车突然急刹（或者前面直接是停着的东西），按你填的车距、反应时间和刹车力度，
+ * 你会不会撞上、要隔几秒才刹得住。
+ * 模型：前车从 t=0 起按 aL 匀减速到停（或「停着的东西」= 原地不动）；你先以原速开过反应时间 tr，
+ * 再按 a 匀减速到停。车距 = 你的车头到前车车尾。两车距离是分段二次函数，逐段求最小值与第一次碰上的时刻（闭式，不做时间步进）。
+ * 所有数是你自己填的假设，本页不提供任何真实路面、车型或驾驶员数据，不是安全标准。 */
+(function (root) {
+  'use strict';
+  const MAX_V = 200;      // km/h
+  const KEYS = ['label', 'v', 'vL', 'scen', 'gapMode', 'gap', 'tr', 'a', 'aL', 'buffer'];
+
+  class InputError extends Error { constructor(msg, field) { super(msg); this.field = field; } }
+
+  function fmtInt(n) { return Number(n).toLocaleString('en-US'); }
+  /* 定点显示：d 位小数，四舍五入；负零显示成 0 */
+  function fx(x, d) { const p = Math.pow(10, d); let v = Math.round(x * p + (x >= 0 ? 1e-9 : -1e-9)) / p; if (Object.is(v, -0) || Math.abs(v) < 0.5 / p) v = 0; const s = v.toFixed(d); return s.replace('-', '−'); }
+  function trim2(x) { return String(Number((Math.round(x * 100 + 1e-9) / 100).toFixed(2))); }
+  /* 向上取到 1/10（只用于「至少要多少」，保守） */
+  function ceil1(x) { return Math.ceil(x * 10 - 1e-7) / 10; }
+
+  function num(s, field, label, { min, max, minOpen = false, dec = 2, optional = false, unit = '' } = {}) {
+    const t = String(s == null ? '' : s).trim();
+    if (!t) { if (optional) return 0; throw new InputError(label + '没填', field); }
+    if (!/^\d+(\.\d+)?$/.test(t)) throw new InputError(label + '只能填数字', field);
+    const m = /\.(\d+)$/.exec(t);
+    if (m && m[1].length > dec) throw new InputError(label + '最多 ' + dec + ' 位小数', field);
+    const v = parseFloat(t);
+    if (minOpen ? v <= min : v < min) throw new InputError(label + (minOpen ? '要大于 ' : '至少 ') + min + unit, field);
+    if (v > max) throw new InputError(label + '最多 ' + max + unit, field);
+    return v;
+  }
+
+  function parse(s) {
+    if (!s || typeof s !== 'object') throw new InputError('数据坏了', 'v');
+    const label = String(s.label == null ? '' : s.label);
+    if (label.length > 30) throw new InputError('场景名最多 30 个字', 'label');
+    const scen = s.scen === 'obstacle' ? 'obstacle' : s.scen === 'brake' ? 'brake' : null;
+    if (!scen) throw new InputError('前车情况只能选「前车急刹」或「前面停着东西」', 'scen');
+    const gapMode = s.gapMode === 'm' ? 'm' : s.gapMode === 'sec' ? 'sec' : null;
+    if (!gapMode) throw new InputError('车距只能按秒或按米填', 'gapMode');
+    const v = num(s.v, 'v', '你的车速', { min: 1, max: MAX_V, dec: 1, unit: ' km/h' });
+    const vL = scen === 'brake' ? num(s.vL, 'vL', '前车车速', { min: 0, max: MAX_V, dec: 1, unit: ' km/h' }) : 0;
+    const gap = gapMode === 'sec' ? num(s.gap, 'gap', '车距', { min: 0.1, max: 10, dec: 2, unit: ' 秒' }) : num(s.gap, 'gap', '车距', { min: 0.5, max: 500, dec: 1, unit: ' 米' });
+    const tr = num(s.tr, 'tr', '反应时间', { min: 0, max: 5, dec: 2, unit: ' 秒' });
+    const a = num(s.a, 'a', '你的刹车减速度', { min: 0.5, max: 12, dec: 1, unit: ' m/s²' });
+    const aL = scen === 'brake' ? num(s.aL, 'aL', '前车的刹车减速度', { min: 0.5, max: 12, dec: 1, unit: ' m/s²' }) : 0;
+    const buffer = num(s.buffer, 'buffer', '停下后至少留', { min: 0, max: 20, dec: 1, optional: true, unit: ' 米' });
+    const vF = v / 3.6;
+    const d = gapMode === 'sec' ? vF * gap : gap;
+    return { label, scen, gapMode, v, vL, gap, tr, a, aL, buffer, vF, vLm: vL / 3.6, d, sec: d / vF };
+  }
+
+  /* 物理：P = { vF, vL (m/s), d (m), tr (s), a, aL (m/s²), obstacle } */
+  function motion(P) {
+    const lead = !P.obstacle && P.vL > 0;
+    const tL = lead ? P.vL / P.aL : 0;
+    const tF = P.tr + P.vF / P.a;
+    const xF = (t) => t <= P.tr ? P.vF * t : t <= tF ? P.vF * P.tr + P.vF * (t - P.tr) - P.a * (t - P.tr) * (t - P.tr) / 2 : P.vF * P.tr + P.vF * P.vF / (2 * P.a);
+    const sF = (t) => t <= P.tr ? P.vF : t <= tF ? P.vF - P.a * (t - P.tr) : 0;
+    const xL = (t) => !lead ? P.d : t <= tL ? P.d + P.vL * t - P.aL * t * t / 2 : P.d + P.vL * P.vL / (2 * P.aL);
+    const sL = (t) => !lead ? 0 : t <= tL ? P.vL - P.aL * t : 0;
+    const accF = (t) => (t > P.tr && t < tF) ? -P.a : 0;
+    const accL = (t) => (lead && t < tL) ? -P.aL : 0;
+    return { lead, tL, tF, xF, sF, xL, sL, accF, accL };
+  }
+  function sim(P) {
+    const M = motion(P);
+    const end = Math.max(M.tF, M.tL);
+    const bps = [...new Set([0, P.tr, M.tF, M.tL].filter((t) => t >= 0 && t <= end))].sort((x, y) => x - y);
+    const gapAt = (t) => M.xL(t) - M.xF(t);
+    let minGap = gapAt(0), tMin = 0, hit = null;
+    for (let i = 0; i + 1 < bps.length; i++) {
+      const t0 = bps[i], t1 = bps[i + 1], L = t1 - t0;
+      if (L <= 0) continue;
+      const mid = (t0 + t1) / 2;
+      const g0 = gapAt(t0), r0 = M.sL(t0) - M.sF(t0), q = M.accL(mid) - M.accF(mid);
+      const g = (tau) => g0 + r0 * tau + q * tau * tau / 2;
+      const cands = [0, L];
+      if (q > 0) { const tv = -r0 / q; if (tv > 0 && tv < L) cands.push(tv); }
+      for (const tau of cands) { const gv = g(tau); if (gv < minGap) { minGap = gv; tMin = t0 + tau; } }
+      /* 第一次碰上：g(tau) = 0 的最小非负根（只在这段之前没碰上时找） */
+      if (!hit) {
+        let root = null;
+        if (g0 <= 0) root = 0;
+        else if (Math.abs(q) < 1e-12) { if (r0 < 0) { const z = -g0 / r0; if (z <= L) root = z; } }
+        else {
+          const disc = r0 * r0 - 2 * q * g0;
+          if (disc >= 0) {
+            const sq = Math.sqrt(disc);
+            const zs = [(-r0 - sq) / q, (-r0 + sq) / q].filter((z) => z >= 0 && z <= L).sort((x, y) => x - y);
+            if (zs.length) root = zs[0];
+          }
+        }
+        if (root != null) { const th = t0 + root; hit = { t: th, rel: M.sF(th) - M.sL(th), x: M.xF(th) }; }
+      }
+    }
+    const gEnd = gapAt(end);
+    if (gEnd < minGap) { minGap = gEnd; tMin = end; }
+    if (minGap >= 0) hit = null;
+    return { minGap, tMin, hit, stopF: M.xF(M.tF), stopL: M.xL(Math.max(M.tL, 0)), tF: M.tF, tL: M.tL, lead: M.lead };
+  }
+  function physOf(D, over) {
+    const o = Object.assign({ vF: D.vF, vL: D.vLm, d: D.d, tr: D.tr, a: D.a, aL: D.aL, obstacle: D.scen === 'obstacle' }, over || {});
+    return o;
+  }
+  /* 至少要多远：两车距离 = d + f(t)，f 与 d 无关，所以最小距离 = d + min f，要 ≥ buffer ⇒ d ≥ buffer − min f */
+  function needDist(P, buffer) { const r = sim(Object.assign({}, P, { d: 0 })); return buffer - r.minGap; }
+  function statusOf(minGap, buffer) { return minGap < 0 ? 'hit' : minGap < buffer ? 'tight' : 'safe'; }
+
+  const GRID_V = [30, 50, 70, 90, 110, 130];
+  const GRID_S = [1, 1.5, 2, 2.5, 3, 4];
+
+  function evaluate(D, over) {
+    const P = physOf(D, over);
+    const r = sim(P);
+    const need = needDist(P, D.buffer);
+    return { P, r, need, needSec: need / P.vF, status: statusOf(r.minGap, D.buffer) };
+  }
+
+  function calculate(s) {
+    const D = parse(s);
+    const E = evaluate(D);
+    const r = E.r;
+    const needSecUp = ceil1(E.needSec);
+    /* 格子：每行一个车速、前车同速（「前面停着东西」时没有前车速度），每格一个按秒的车距 */
+    const grid = GRID_V.map((v) => {
+      const vF = v / 3.6, vL = D.scen === 'brake' ? vF : 0;
+      const need = needDist(physOf(D, { vF, vL }), D.buffer);
+      return { v, needSec: ceil1(need / vF), cells: GRID_S.map((sec) => { const P = physOf(D, { vF, vL, d: vF * sec }); const x = sim(P); return { sec, status: statusOf(x.minGap, D.buffer), minGap: x.minGap, rel: x.hit ? x.hit.rel * 3.6 : 0 }; }) };
+    });
+    /* 要是我估错了 */
+    const what_if = [
+      { id: 'tr05', text: '反应再慢 0.5 秒', over: { tr: D.tr + 0.5 } },
+      { id: 'tr10', text: '分神 1 秒（反应慢 1 秒）', over: { tr: D.tr + 1 } },
+      { id: 'a70', text: '你只刹得出 70%（' + fx(D.a * 0.7, 2) + ' m/s²）', over: { a: D.a * 0.7 } },
+    ];
+    if (D.scen === 'brake') what_if.push({ id: 'obs', text: '前车不是刹停、而是一下子停住（撞上了东西）', over: { obstacle: true } });
+    const wi = what_if.map((w) => { const P = physOf(D, w.over); const x = sim(P); const need = needDist(P, D.buffer); return { id: w.id, text: w.text, status: statusOf(x.minGap, D.buffer), minGap: x.minGap, rel: x.hit ? x.hit.rel * 3.6 : 0, needSec: ceil1(need / P.vF) }; });
+
+    const st = E.status;
+    const secTxt = trim2(D.sec);
+    const stamp = st === 'hit' ? '会撞上' : st === 'tight' ? '刹住了，太贴' : '刹得住';
+    const leadTxt = D.scen === 'obstacle' ? '前面停着东西' : '前车以 ' + fx(D.vL, 0) + ' km/h 急刹（' + fx(D.aL, 1) + ' m/s²）';
+    let summary;
+    if (st === 'hit') summary = '你 ' + fx(D.v, 0) + ' km/h、隔 ' + secTxt + ' 秒（' + fx(D.d, 1) + ' 米），' + leadTxt + '：' + (r.hit.t <= D.tr ? '你还没反应过来踩下刹车，' : '反应 ' + trim2(D.tr) + ' 秒后再刹也来不及，') + (D.scen === 'obstacle' ? '看到它后' : '前车刹车后') + '约 ' + fx(r.hit.t, 1) + ' 秒撞上，' + (D.scen === 'obstacle' ? '撞上时你还有 ' : '那一下你比它快 ') + fx(r.hit.rel * 3.6, 1) + ' km/h。';
+    else if (st === 'tight') summary = '你 ' + fx(D.v, 0) + ' km/h、隔 ' + secTxt + ' 秒（' + fx(D.d, 1) + ' 米），' + leadTxt + '：最近只剩 ' + fx(r.minGap, 1) + ' 米，没撞上，但不够你要留的 ' + fx(D.buffer, 1) + ' 米。';
+    else summary = '你 ' + fx(D.v, 0) + ' km/h、隔 ' + secTxt + ' 秒（' + fx(D.d, 1) + ' 米），' + leadTxt + '：最近还剩 ' + fx(r.minGap, 1) + ' 米，刹得住。';
+    const facts = [];
+    facts.push('按你填的这些，至少要隔 ' + fx(ceil1(E.need), 1) + ' 米、也就是 ' + fx(needSecUp, 1) + ' 秒（向上取到 0.1），停下后才还留 ' + fx(D.buffer, 1) + ' 米' + (st === 'safe' ? '；你现在多出 ' + fx(D.d - E.need, 1) + ' 米。' : '；你现在差 ' + fx(E.need - D.d, 1) + ' 米。'));
+    facts.push('反应那 ' + trim2(D.tr) + ' 秒你还没踩刹车，原速开出 ' + fx(D.vF * D.tr, 1) + ' 米；踩下后再滑 ' + fx(D.vF * D.vF / (2 * D.a), 1) + ' 米才停，一共 ' + fx(r.stopF, 1) + ' 米。');
+    if (D.scen === 'brake') facts.push(D.vL > 0 ? '前车从刹车到停走了 ' + fx(D.vLm * D.vLm / (2 * D.aL), 1) + ' 米（' + fx(r.tL, 1) + ' 秒），它往前走的这段也替你留了空。' : '前车车速 0，等于前面停着东西。');
+    else facts.push('前面是停着的东西，不会往前让出一点距离，所以要的车距比「前车也在刹」长。');
+    facts.push('「隔几秒」= 前车车尾经过路边某个标记后，你数几秒车头才到那里；同样秒数，车速越快隔的米数越多。');
+    return { D, E, r, st, stamp, summary, facts, grid, wi, needSecUp };
+  }
+
+  /* 建议：都能一键代回 */
+  function suggestions(s, R) {
+    const out = [];
+    const D = R.D;
+    if (R.st === 'safe') return out;
+    /* 1. 拉开到至少要的秒数（向上取到 0.1 秒后再核一次，不够再加 0.1）；超过 10 秒就改按米给（向上取到 0.1 米），超过 500 米不给 */
+    let apply = null, sec = R.needSecUp;
+    while (sec <= 10 + 1e-9) {
+      const ap = Object.assign({}, s, { gapMode: 'sec', gap: fx(sec, 1) });
+      if (calculate(ap).st === 'safe') { apply = ap; break; }
+      sec = Math.round((sec + 0.1) * 10) / 10;
+    }
+    if (apply) out.push({ id: 'gap', text: '车距拉到 ' + fx(sec, 1) + ' 秒（约 ' + fx(D.vF * sec, 1) + ' 米）：最近还剩 ' + fx(calculate(apply).r.minGap, 1) + ' 米。', apply });
+    else {
+      let m = ceil1(R.E.need);
+      while (m <= 500 + 1e-9) {
+        const ap = Object.assign({}, s, { gapMode: 'm', gap: fx(m, 1) });
+        if (calculate(ap).st === 'safe') { apply = ap; break; }
+        m = Math.round((m + 0.1) * 10) / 10;
+      }
+      if (apply) out.push({ id: 'gap', text: '车距拉到 ' + fx(m, 1) + ' 米（超过 10 秒，按米给）：最近还剩 ' + fx(calculate(apply).r.minGap, 1) + ' 米。', apply });
+    }
+    /* 2. 车距不变，车速往下降，找第一个刹得住的整数 km/h（前车同速时一起降） */
+    const same = D.scen === 'brake' && D.vL === D.v;
+    for (let v = Math.ceil(D.v) - 1; v >= 1; v--) {
+      const ap = Object.assign({}, s, { v: String(v) });
+      if (same) ap.vL = String(v);
+      if (calculate(ap).st === 'safe') {
+        out.push({ id: 'speed', text: '车距照旧（' + (D.gapMode === 'sec' ? trim2(D.gap) + ' 秒' : fx(D.gap, 1) + ' 米') + '），车速降到 ' + v + ' km/h' + (same ? '（前车也一样慢）' : ' ') + '就刹得住。', apply: ap });
+        break;
+      }
+    }
+    /* 3. 按秒填时车速一降米数也跟着少，降速往往不够；改成「米数不变」再找车速 */
+    if (!out.some((o) => o.id === 'speed') && D.gapMode === 'sec') {
+      const m = fx(D.d, 1);
+      for (let v = Math.ceil(D.v) - 1; v >= 1; v--) {
+        const ap = Object.assign({}, s, { v: String(v), gapMode: 'm', gap: m });
+        if (same) ap.vL = String(v);
+        if (calculate(ap).st === 'safe') { out.push({ id: 'speedM', text: '还是现在这 ' + m + ' 米，车速降到 ' + v + ' km/h' + (same ? '（前车也一样慢）' : ' ') + '就刹得住（按秒算光降速不够：慢下来米数也跟着少）。', apply: ap }); break; }
+      }
+    }
+    return out;
+  }
+
+  const HEAD = ['车速 \\ 隔几秒'].concat(GRID_S.map((x) => x + ' 秒')).concat(['至少要']);
+  function cellText(c) { return c.status === 'hit' ? '撞 ' + fx(c.rel, 0) : c.status === 'tight' ? '贴 ' + fx(c.minGap, 1) + 'm' : '剩 ' + fx(c.minGap, 1) + 'm'; }
+  function gridRows(R) { return R.grid.map((g) => [g.v + ' km/h'].concat(g.cells.map(cellText)).concat([fx(g.needSec, 1) + ' 秒'])); }
+  function whatIfText(R) {
+    return R.wi.map((w) => w.text + '：' + (w.status === 'hit' ? '会撞上，那一下快 ' + fx(w.rel, 1) + ' km/h' : w.status === 'tight' ? '没撞上，只剩 ' + fx(w.minGap, 1) + ' 米' : '刹得住，剩 ' + fx(w.minGap, 1) + ' 米') + '；至少要隔 ' + fx(w.needSec, 1) + ' 秒');
+  }
+  const csvCell = (v) => { const t = String(v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  function inputLine(D) {
+    return ['场景', D.label, '你的车速', fx(D.v, 1) + ' km/h', '前车', D.scen === 'obstacle' ? '停着的东西' : fx(D.vL, 1) + ' km/h 急刹 ' + fx(D.aL, 1) + ' m/s²',
+      '车距', D.gapMode === 'sec' ? D.gap + ' 秒' : D.gap + ' 米', '反应', D.tr + ' 秒', '你的减速度', fx(D.a, 1) + ' m/s²', '至少留', fx(D.buffer, 1) + ' 米'];
+  }
+  function toCSV(R, when) {
+    const L = [];
+    L.push(['隔两秒够不够', '生成 ' + when, '默认数据为虚构示例，不是安全标准'].map(csvCell).join(','));
+    L.push(inputLine(R.D).map(csvCell).join(','));
+    L.push(['结论', R.stamp, R.summary].map(csvCell).join(','));
+    R.facts.forEach((f) => L.push(['', f].map(csvCell).join(',')));
+    L.push(['格子表：前车同速（撞 = 撞上那一下快多少 km/h；剩/贴 = 停下后最近还剩几米）'].map(csvCell).join(','));
+    L.push(HEAD.map(csvCell).join(','));
+    gridRows(R).forEach((r) => L.push(r.map(csvCell).join(',')));
+    return L.join('\n') + '\n';
+  }
+  function toMD(R, when, sg) {
+    const D = R.D, L = [];
+    L.push('# 隔两秒够不够' + (D.label ? ' · ' + D.label : ''), '', '生成时间：' + when + '　默认数据为虚构示例', '');
+    L.push('**' + R.stamp + '**：' + R.summary, '');
+    R.facts.forEach((f) => L.push('- ' + f));
+    L.push('', '## 换个车速、换个秒数（前车同速）', '');
+    L.push('| ' + HEAD.join(' | ') + ' |', '|' + HEAD.map(() => '---').join('|') + '|');
+    gridRows(R).forEach((r) => L.push('| ' + r.join(' | ') + ' |'));
+    L.push('', '## 要是我估错了', '');
+    whatIfText(R).forEach((t) => L.push('- ' + t));
+    if (sg && sg.length) { L.push('', '## 可以改的', ''); sg.forEach((s) => L.push('- ' + s.text)); }
+    L.push('', '所有数是你自己填的假设，本页不提供真实路面、车型或驾驶员数据，不是安全标准；算出来刹得住不代表现实里一定刹得住。');
+    return L.join('\n') + '\n';
+  }
+
+  const DEFAULT = { label: '高速上跟着一辆车', v: '100', vL: '100', scen: 'brake', gapMode: 'sec', gap: '1.2', tr: '1.5', a: '6.5', aL: '8', buffer: '2' };
+  const PRESETS = [
+    ['高速跟车（默认）', DEFAULT],
+    ['城里跟车 1 秒', { label: '城里早高峰', v: '50', vL: '50', scen: 'brake', gapMode: 'sec', gap: '1', tr: '1.2', a: '6.5', aL: '7', buffer: '1' }],
+    ['下雨天隔 3 秒', { label: '下雨的快速路', v: '80', vL: '80', scen: 'brake', gapMode: 'sec', gap: '3', tr: '1.5', a: '4', aL: '6', buffer: '2' }],
+    ['前面停着东西', { label: '弯后面停着一辆故障车', v: '60', vL: '', scen: 'obstacle', gapMode: 'm', gap: '45', tr: '1.5', a: '6.5', aL: '', buffer: '2' }],
+  ];
+
+  const API = { MAX_V, KEYS, DEFAULT, PRESETS, GRID_V, GRID_S, InputError, parse, motion, sim, needDist, statusOf, evaluate, physOf, calculate, suggestions, toCSV, toMD, gridRows, whatIfText, HEAD, cellText, fx, ceil1, trim2, fmtInt };
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+  else root.AppCore = API;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+  </script>
+  <script>
+/* 隔两秒够不够 · 界面层 */
+(function () {
+  'use strict';
+  const C = window.AppCore;
+  const KEY = 'two-second-gap:v1';
+  const NAME = '隔两秒够不够';
+  const copy = (o) => JSON.parse(JSON.stringify(o));
+  const { DEFAULT, PRESETS, KEYS, fx } = C;
+  const INPUTS = ['label', 'v', 'vL', 'gap', 'tr', 'a', 'aL', 'buffer'];
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const FF = '"PingFang SC","Microsoft YaHei",sans-serif';
+  const COL = { hit: '#b3362b', tight: '#b7791f', safe: '#2c7a4b', me: '#2d5d4b', lead: '#8a6a2f', grid: '#e8ecea', txt: '#6b746f' };
+  let state = copy(DEFAULT);
+  let last = null;
+
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 隐私模式忽略 */ } }
+  function load() {
+    try {
+      const o = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+      const s = {};
+      for (const k of KEYS) { if (o[k] != null && typeof o[k] === 'object') return null; s[k] = o[k] == null ? '' : String(o[k]).slice(0, 40); }
+      if (s.scen !== 'brake' && s.scen !== 'obstacle') return null;
+      if (s.gapMode !== 'sec' && s.gapMode !== 'm') return null;
+      return s;
+    } catch (e) { return null; }
+  }
+
+  function fillSeg() {
+    [].forEach.call($('scenSeg').children, (b) => b.classList.toggle('on', b.dataset.v === state.scen));
+    [].forEach.call($('modeSeg').children, (b) => b.classList.toggle('on', b.dataset.v === state.gapMode));
+    const obs = state.scen === 'obstacle';
+    $('vL').disabled = obs; $('aL').disabled = obs;
+    $('gapLab').textContent = state.gapMode === 'sec' ? '隔几秒（秒）' : '隔几米（米）';
+  }
+  function fill() { INPUTS.forEach((k) => { $(k).value = state[k]; }); fillSeg(); }
+
+  function bigText(R) {
+    if (R.st === 'hit') return '撞上时快 <b>' + fx(R.r.hit.rel * 3.6, 0) + '</b> km/h';
+    return '最近还剩 <b>' + fx(R.r.minGap, 1) + '</b> 米';
+  }
+  const plain = (h) => h.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+  const sameSec = (a, b) => Math.abs(a - b) < 1e-9;
+  function tgHTML(R) {
+    const D = R.D;
+    const head = '<tr>' + C.HEAD.map((h) => '<th>' + esc(h) + '</th>').join('') + '</tr>';
+    const rows = C.gridRows(R);
+    return head + R.grid.map((g, i) => '<tr><th>' + esc(rows[i][0]) + '</th>' + g.cells.map((c, j) => {
+      const me = D.gapMode === 'sec' && sameSec(D.v, g.v) && sameSec(D.gap, c.sec) && (D.scen === 'obstacle' || sameSec(D.vL, D.v));
+      return '<td class="' + c.status + (me ? ' me' : '') + '" data-v="' + g.v + '" data-s="' + c.sec + '">' + esc(rows[i][j + 1]) + '</td>';
+    }).join('') + '<td class="need">' + esc(rows[i][rows[i].length - 1]) + '</td></tr>').join('');
+  }
+
+  /* 刻度：给定范围挑 1/2/5×10^k 的步长 */
+  function niceStep(span, n) { const raw = span / Math.max(1, n), p = Math.pow(10, Math.floor(Math.log10(raw))); for (const k of [1, 2, 5, 10]) if (k * p >= raw) return k * p; return 10 * p; }
+  const m1 = (x) => (Math.abs(x) >= 100 ? fx(x, 0) : fx(x, 1)).replace(/\.0$/, '');
+
+  /* 路面：横轴是路上的位置（米），0 = 你开始的位置 */
+  function drawRoad(g, R, W, H, fs) {
+    const D = R.D, r = R.r;
+    const endF = r.hit ? r.hit.x : r.stopF;
+    const leadEnd = r.hit ? Math.min(r.hit.x, r.stopL) : r.stopL;
+    const far = Math.max(D.d, leadEnd, endF, 1);
+    const x0 = 14, x1 = W - 14;
+    const xm = (m) => x0 + (x1 - x0) * m / (far * 1.04);
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+    g.font = fs + 'px ' + FF;
+    const ry = Math.round(H * 0.42), rh = Math.round(H * 0.26);
+    g.fillStyle = '#d9ddda'; g.fillRect(x0, ry, x1 - x0, rh);
+    g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.setLineDash([12, 10]); g.beginPath(); g.moveTo(x0, ry + rh / 2); g.lineTo(x1, ry + rh / 2); g.stroke(); g.setLineDash([]);
+    /* 你：反应段（浅）+ 刹车段（深），到停下或撞上 */
+    const reactEnd = Math.min(D.vF * D.tr, endF);
+    const by = ry + rh * 0.62, bh = Math.max(4, rh * 0.22);
+    g.fillStyle = 'rgba(45,93,75,.35)'; g.fillRect(xm(0), by, xm(reactEnd) - xm(0), bh);
+    g.fillStyle = COL.me; g.fillRect(xm(reactEnd), by, Math.max(0, xm(endF) - xm(reactEnd)), bh);
+    /* 前车：从 d 到 stopL */
+    const ly = ry + rh * 0.16;
+    if (r.lead) { g.fillStyle = 'rgba(138,106,47,.55)'; g.fillRect(xm(D.d), ly, Math.max(2, xm(leadEnd) - xm(D.d)), bh); }
+    const car = (m, col, y, hollow) => { const w = Math.max(10, fs * 1.3), h = bh + 6, l = Math.max(x0 + 1, xm(m) - w); g.lineWidth = 2; g.strokeStyle = col; g.fillStyle = col; if (hollow) g.strokeRect(l, y - 3, w, h); else g.fillRect(l, y - 3, w, h); };
+    car(0, COL.me, by, true);
+    car(D.d + 0.0001, COL.lead, ly, r.lead);
+    if (r.lead) car(leadEnd, COL.lead, ly, false);
+    car(endF, r.hit ? COL.hit : COL.me, by, false);
+    /* 标签：上方写前车，下方写你；夹在画布内 */
+    g.textBaseline = 'alphabetic';
+    const put = (txt, m, y, col, bold) => { g.font = (bold ? 'bold ' : '') + fs + 'px ' + FF; const tw = g.measureText(txt).width; const tx = Math.max(2, Math.min(W - tw - 2, xm(m) - tw / 2)); g.fillStyle = col; g.fillText(txt, tx, y); return [tx, tx + tw]; };
+    const topY = ry - 8, botY = ry + rh + fs + 6, bot2 = botY + fs + 6;
+    if (r.lead) {
+      const a = put((D.scen === 'obstacle' ? '停着的东西' : '前车开始刹') + ' ' + m1(D.d) + ' 米', D.d, topY - fs - 6, COL.lead);
+      const b = put(r.hit ? (r.tL > r.hit.t ? '撞上时前车在 ' + m1(leadEnd) + ' 米，还没停' : '前车已停在 ' + m1(leadEnd) + ' 米') : '前车停在 ' + m1(r.stopL) + ' 米', leadEnd, topY, COL.lead);
+      void a; void b;
+    } else put('停着的东西在 ' + m1(D.d) + ' 米', D.d, topY, COL.lead, true);
+    put(r.hit && r.hit.t <= D.tr ? '还没踩下刹车就撞上' : '反应 ' + m1(reactEnd) + ' 米', reactEnd / 2, botY, COL.me);
+    put(r.hit ? '撞上：' + m1(r.hit.x) + ' 米处，还快 ' + fx(r.hit.rel * 3.6, 0) + ' km/h' : '你停在 ' + m1(r.stopF) + ' 米', endF, bot2, r.hit ? COL.hit : COL.me, true);
+  }
+
+  /* 间距随时间：横轴秒，纵轴米 */
+  function drawGap(g, R, W, H, fs) {
+    const D = R.D, r = R.r, P = R.E.P, M = C.motion(P);
+    const tEnd = r.hit ? r.hit.t : Math.max(r.tF, r.tL, 0.1);
+    const N = 240, pts = [];
+    for (let i = 0; i <= N; i++) { const t = tEnd * i / N; pts.push([t, M.xL(t) - M.xF(t)]); }
+    let hi = Math.max(D.d, D.buffer, ...pts.map((p) => p[1])), lo = Math.min(0, ...pts.map((p) => p[1]));
+    if (hi - lo < 1) hi = lo + 1;
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+    g.font = fs + 'px ' + FF;
+    const st = niceStep(hi - lo, 4);
+    const lw = g.measureText(m1(Math.ceil(hi / st) * st) + ' 米').width + 10;
+    const x0 = lw, x1 = W - 12, top = fs, bot = H - fs * 2 - 8;
+    const xt = (t) => x0 + (x1 - x0) * t / tEnd, yv = (v) => bot - (bot - top) * (v - lo) / (hi - lo);
+    g.textAlign = 'right'; g.textBaseline = 'middle';
+    for (let v = Math.ceil(lo / st) * st; v <= hi + 1e-9; v += st) {
+      const y = yv(v); g.strokeStyle = COL.grid; g.lineWidth = 1; g.beginPath(); g.moveTo(x0, y); g.lineTo(x1, y); g.stroke();
+      g.fillStyle = COL.txt; g.fillText(m1(v) + ' 米', x0 - 6, y);
+    }
+    g.textBaseline = 'top';
+    const ts = niceStep(tEnd, Math.max(2, Math.floor((x1 - x0) / (fs * 4.5))));
+    for (let t = 0; t <= tEnd + 1e-9; t += ts) { const tx = m1(t) + ' 秒', tw = g.measureText(tx).width; g.textAlign = 'left'; g.fillStyle = COL.txt; g.fillText(tx, Math.max(x0, Math.min(W - tw - 2, xt(t) - tw / 2)), bot + 4); }
+    /* 0 线与要留的线 */
+    g.strokeStyle = COL.hit; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x0, yv(0)); g.lineTo(x1, yv(0)); g.stroke();
+    if (D.buffer > 0) { g.strokeStyle = COL.tight; g.setLineDash([5, 4]); g.beginPath(); g.moveTo(x0, yv(D.buffer)); g.lineTo(x1, yv(D.buffer)); g.stroke(); g.setLineDash([]); }
+    /* 反应结束竖线 */
+    if (D.tr > 0 && D.tr < tEnd) { const x = xt(D.tr); g.strokeStyle = '#b9c2bd'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x, top); g.lineTo(x, bot); g.stroke(); g.setLineDash([]); g.fillStyle = COL.txt; g.textAlign = 'left'; g.textBaseline = 'top'; const t = '你踩下刹车', tw = g.measureText(t).width; g.fillText(t, x + 4 + tw > x1 ? x - 4 - tw : x + 4, top); }
+    g.strokeStyle = COL.me; g.lineWidth = 2.5; g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(xt(p[0]), yv(p[1])) : g.moveTo(xt(p[0]), yv(p[1])))); g.stroke();
+    /* 最近点 / 撞上点 */
+    const mx = r.hit ? xt(r.hit.t) : xt(Math.min(r.tMin, tEnd)), my = r.hit ? yv(0) : yv(r.minGap);
+    g.fillStyle = r.hit ? COL.hit : R.st === 'tight' ? COL.tight : COL.safe; g.beginPath(); g.arc(mx, my, 5, 0, 7); g.fill();
+    g.font = 'bold ' + fs + 'px ' + FF; g.textBaseline = 'bottom';
+    const lab = r.hit ? '第 ' + fx(r.hit.t, 1) + ' 秒撞上' : '最近 ' + fx(r.minGap, 1) + ' 米';
+    const tw = g.measureText(lab).width; let tx = mx + 8; if (tx + tw > W - 2) tx = mx - 8 - tw; if (tx < x0) tx = x0 + 2;
+    /* 标签抬到点的上方、避开 0 线与要留的线 */
+    const ly = Math.max(top + fs, my - fs * 0.9);
+    const bw = tw + 8; g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(tx - 4, ly - fs - 3, bw, fs + 6);
+    g.fillStyle = r.hit ? COL.hit : R.st === 'tight' ? COL.tight : COL.safe; g.fillText(lab, tx, ly);
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  }
+  function renderCanvas(id, fn, R) {
+    const cv = $(id), dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fn(g, R, W, H, W < 500 ? 11 : 12);
+  }
+  function renderCharts(R) { renderCanvas('road', drawRoad, R); renderCanvas('gapc', drawGap, R); }
+  function sugList(sg) {
+    $('sugCard').style.display = sg.length ? '' : 'none';
+    $('sugs').innerHTML = sg.map((s, k) => '<div class="sug"><span>' + esc(s.text) + '</span><button class="ghost" data-sug="' + s.id + '" data-k="' + k + '">代回</button></div>').join('');
+    [].forEach.call($('sugs').querySelectorAll('button'), (b) => b.addEventListener('click', () => { state = copy(sg[+b.dataset.k].apply); fill(); run(); }));
+  }
+
+  function run() {
+    document.querySelectorAll('.bad').forEach((el) => el.classList.remove('bad'));
+    $('error').style.display = 'none';
+    try {
+      const R = C.calculate(state);
+      const sg = C.suggestions(state, R);
+      $('out').style.display = '';
+      $('stamp').textContent = R.stamp; $('stamp').className = 'stamp ' + R.st;
+      $('big').innerHTML = bigText(R);
+      $('sumTxt').textContent = R.summary;
+      $('facts').innerHTML = R.facts.map((f) => '<li>' + esc(f) + '</li>').join('');
+      const obs = R.D.scen === 'obstacle';
+      $('gapTitle').textContent = obs ? '离停着的东西还剩几米（从你看到它那一刻算）' : '两车之间还剩几米（从前车刹车那一刻算）';
+      $('roadTitle').textContent = obs ? '路面上：你在哪停下、东西在哪' : '路面上：两辆车各自在哪停下';
+      $('tg').innerHTML = tgHTML(R);
+      $('wi').innerHTML = C.whatIfText(R).map((t) => '<li>' + esc(t) + '</li>').join('');
+      last = { r: R, sg };
+      renderCharts(R); sugList(sg);
+    } catch (e) {
+      last = null;
+      if (e.field) { const el = $(e.field === 'scen' ? 'scenSeg' : e.field === 'gapMode' ? 'modeSeg' : e.field); if (el) el.classList.add('bad'); }
+      $('error').textContent = '算不了：' + e.message; $('error').style.display = 'block';
+      $('out').style.display = 'none';
+    }
+    save();
+  }
+
+  /* ── 导出 ── */
+  function stamp() { const d = new Date(), z = (n) => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()); }
+  function download(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+  function fit(g, t, w) { let s = String(t); if (g.measureText(s).width <= w) return s; while (s.length > 1 && g.measureText(s + '…').width > w) s = s.slice(0, -1); return s + '…'; }
+  function wrap(g, t, w) {
+    const NOHEAD = '，。、；：！？）」』”%·→｜';
+    const out = []; let line = [];
+    const toks = String(t).match(/[−+-]?[0-9][0-9.,]*(\s?(km\/h|米|秒|m\/s²))?|[A-Za-z_][A-Za-z0-9_.\-/²]*|[\s\S]/g) || [];
+    const width = (a) => g.measureText(a.join('')).width;
+    for (const tk of toks) {
+      if (line.length && width(line.concat([tk])) > w) {
+        const carry = [tk];
+        while (line.length > 1 && (NOHEAD.indexOf(carry[0][0]) >= 0 || '（「『“'.indexOf(line[line.length - 1]) >= 0)) carry.unshift(line.pop());
+        out.push(line.join(''));
+        line = carry; if (/^\s+$/.test(line[0])) line.shift();
+      } else line.push(tk);
+    }
+    if (line.length) out.push(line.join('')); return out;
+  }
+  function drawPNG(Lx) {
+    const R = Lx.r, D = R.D;
+    const Wd = 1080, H = 1350, X = 64, TW = 952;
+    const cv = document.createElement('canvas'); cv.width = Wd; cv.height = H;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#eef0ee'; g.fillRect(0, 0, Wd, H);
+    g.fillStyle = '#ffffff'; g.fillRect(32, 32, Wd - 64, H - 64);
+    g.fillStyle = COL.txt; g.font = '22px ' + FF;
+    g.fillText(fit(g, NAME + (D.label ? ' · ' + D.label : ''), TW - 280), X, 88);
+    g.save(); g.translate(X + TW - 120, 76); g.rotate(-0.05);
+    const col = COL[R.st];
+    g.strokeStyle = g.fillStyle = col; g.lineWidth = 4; g.font = 'bold 28px ' + FF;
+    const sw = Math.max(150, g.measureText(R.stamp).width + 36);
+    g.strokeRect(-sw / 2, -28, sw, 50); g.textAlign = 'center'; g.fillText(R.stamp, 0, 8); g.restore();
+    g.fillStyle = '#1f2422';
+    let bf = 46; g.font = 'bold ' + bf + 'px ' + FF;
+    while (bf > 26 && g.measureText(plain(bigText(R))).width > TW) { bf -= 2; g.font = 'bold ' + bf + 'px ' + FF; }
+    g.fillText(fit(g, plain(bigText(R)), TW), X, 160);
+    let y = 210;
+    g.font = '25px ' + FF;
+    wrap(g, R.summary, TW).slice(0, 4).forEach((l) => { g.fillText(l, X, y); y += 36; });
+    y += 6;
+    g.save(); g.translate(X, y); drawRoad(g, R, TW, 210, 19); g.restore(); y += 220;
+    g.save(); g.translate(X, y); drawGap(g, R, TW, 300, 18); g.restore(); y += 320;
+    g.font = '21px ' + FF; g.fillStyle = '#1f2422';
+    for (const f of R.facts.slice(0, 2)) { const ls = wrap(g, '· ' + f, TW); if (y + ls.length * 30 > H - 150) break; ls.forEach((l) => { g.fillText(l, X, y); y += 30; }); y += 3; }
+    y += 6;
+    g.fillStyle = COL.me; g.font = 'bold 21px ' + FF; if (y + 60 < H - 150) { g.fillText('要是我估错了', X, y + 4); y += 36; }
+    g.font = '21px ' + FF; g.fillStyle = '#1f2422';
+    for (const t of C.whatIfText(R)) { const ls = wrap(g, '· ' + t, TW); if (y + ls.length * 30 > H - 150) break; ls.forEach((l) => { g.fillText(l, X, y); y += 30; }); y += 3; }
+    y += 8;
+    for (const s of Lx.sg) { const ls = wrap(g, '· 改一样：' + s.text, TW); if (y + ls.length * 30 > H - 100) break; ls.forEach((l) => { g.fillText(l, X, y); y += 30; }); y += 3; }
+    g.fillStyle = COL.txt; g.font = '18px ' + FF;
+    ['按匀减速和你填的假设算，不是安全标准；算出来刹得住不代表现实里一定刹得住。', '默认数据为虚构示例。'].forEach((l, i) => g.fillText(l, X, H - 74 + i * 27));
+    return Promise.resolve(cv);
+  }
+  function backup() {
+    const R = last.r, D = R.D, r3 = (x) => Math.round(x * 1000) / 1000;
+    return { app: NAME, version: 1, savedAt: stamp(), input: copy(state), result: { status: R.st, stamp: R.stamp, summary: R.summary,
+      gapMeters: r3(D.d), gapSeconds: r3(D.sec), minGap: r3(R.r.minGap), hit: R.r.hit ? { t: r3(R.r.hit.t), relKmh: r3(R.r.hit.rel * 3.6), atMeters: r3(R.r.hit.x) } : null,
+      needMeters: r3(R.E.need), needSecondsUp: R.needSecUp, yourStopMeters: r3(R.r.stopF), leadStopMeters: r3(R.r.stopL),
+      grid: R.grid.map((g) => ({ kmh: g.v, needSecondsUp: g.needSec, cells: g.cells.map((c) => ({ seconds: c.sec, status: c.status, minGap: r3(c.minGap), relKmh: r3(c.rel) })) })),
+      whatIf: R.wi.map((w) => ({ id: w.id, text: w.text, status: w.status, minGap: r3(w.minGap), relKmh: r3(w.rel), needSecondsUp: w.needSec })) } };
+  }
+
+  function init() {
+    let dt = null;
+    const later = () => { save(); clearTimeout(dt); dt = setTimeout(run, 200); };
+    INPUTS.forEach((k) => { $(k).addEventListener('input', () => { state[k] = $(k).value; later(); }); });
+    $('scenSeg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; state.scen = b.dataset.v; fillSeg(); run(); });
+    $('modeSeg').addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b || b.dataset.v === state.gapMode) return;
+      /* 切换口径时把车距换算过去，结论不变 */
+      if (last) state.gap = b.dataset.v === 'm' ? fx(last.r.D.d, 1) : fx(last.r.D.sec, 2);
+      state.gapMode = b.dataset.v; fill(); run();
+    });
+    $('tg').addEventListener('click', (e) => {
+      const td = e.target.closest('td[data-v]'); if (!td) return;
+      state.v = td.dataset.v; if (state.scen === 'brake') state.vL = td.dataset.v;
+      state.gapMode = 'sec'; state.gap = td.dataset.s; fill(); run();
+    });
+    PRESETS.forEach((p) => {
+      const b = document.createElement('button'); b.className = 'ghost'; b.textContent = p[0];
+      b.addEventListener('click', () => { state = copy(p[1]); fill(); run(); });
+      $('presets').appendChild(b);
+    });
+    $('reset').addEventListener('click', () => { state = copy(DEFAULT); fill(); run(); });
+    $('dlCSV').addEventListener('click', () => { if (last) download(NAME + '.csv', new Blob(['\ufeff' + C.toCSV(last.r, stamp())], { type: 'text/csv;charset=utf-8' })); });
+    $('dlMD').addEventListener('click', () => { if (last) download(NAME + '.md', new Blob([C.toMD(last.r, stamp(), last.sg)], { type: 'text/markdown;charset=utf-8' })); });
+    $('dlJSON').addEventListener('click', () => { if (last) download(NAME + '-备份.json', new Blob([JSON.stringify(backup(), null, 2)], { type: 'application/json' })); });
+    $('dlPNG').addEventListener('click', () => { if (last) drawPNG(last).then((cv2) => cv2.toBlob((b) => download(NAME + '-1080x1350.png', b), 'image/png')); });
+    let rt = null; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { if (last) renderCharts(last.r); }, 150); });
+    state = load() || copy(DEFAULT);
+    fill(); run();
+    window.__ex = { last: () => last, state: () => state, presets: PRESETS, DEFAULT, drawPNG, backup, bigPlain: () => plain(bigText(last.r)) };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+
+  </script>
+</body>
+</html>
